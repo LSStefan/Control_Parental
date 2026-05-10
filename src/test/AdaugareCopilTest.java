@@ -1,3 +1,7 @@
+package test;
+import models.*;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -47,7 +51,7 @@ public class AdaugareCopilTest {
         System.out.println("Test: creare copil cu varsta " + varsta);
         Copil c = new Copil(3, "Test", "test@mail.com", "pass", varsta);
         System.out.println("  Copil creat: " + c);
-        assertEquals(varsta, c.getVarsta());
+        Assertions.assertEquals(varsta, c.getVarsta());
     }
 
     @Test
@@ -91,8 +95,8 @@ public class AdaugareCopilTest {
         System.out.println("Test: adaugare profil copil");
         System.out.println("  Profiluri in lista: " + parinte.getListaProfiluri().size());
         System.out.println("  Copil asociat: " + parinte.getProfil(1).getCopil().getNume());
-        assertEquals(1, parinte.getListaProfiluri().size());
-        assertEquals("Maria Popescu", parinte.getProfil(1).getCopil().getNume());
+        Assertions.assertEquals(1, parinte.getListaProfiluri().size());
+        Assertions.assertEquals("Maria Popescu", parinte.getProfil(1).getCopil().getNume());
     }
 
     @Test
@@ -108,7 +112,7 @@ public class AdaugareCopilTest {
         System.out.println("Test: stergere profil cu id=1");
         parinte.stergeProfil(1);
         System.out.println("  Profiluri ramase: " + parinte.getListaProfiluri().size());
-        assertEquals(0, parinte.getListaProfiluri().size());
+        Assertions.assertEquals(0, parinte.getListaProfiluri().size());
     }
 
     @Test
@@ -132,7 +136,7 @@ public class AdaugareCopilTest {
     public void testScenariuCompletAdaugareCopil(String nume, int varsta, int minute) {
         System.out.println("Test scenariu complet: " + nume.trim() + ", varsta=" + varsta + ", minute=" + minute);
 
-        assertTrue(parinte.autentificare("ion@mail.com", "parola123"));
+        Assertions.assertTrue(parinte.autentificare("ion@mail.com", "parola123"));
 
         Copil c = new Copil(5, nume.trim(), nume.trim() + "@mail.com", "pass", varsta);
         LimitaTimp limita = new LimitaTimp(minute, "08:00", "20:00");
@@ -143,9 +147,9 @@ public class AdaugareCopilTest {
         System.out.println("  Profil gasit: " + gasit);
 
         assertNotNull(gasit);
-        assertEquals(nume.trim(), gasit.getCopil().getNume());
-        assertEquals(minute, gasit.getLimitaTimp().getMinuteZilnice());
-        assertEquals(0, gasit.getMinuteUtilizateAzi());
+        Assertions.assertEquals(nume.trim(), gasit.getCopil().getNume());
+        Assertions.assertEquals(minute, gasit.getLimitaTimp().getMinuteZilnice());
+        Assertions.assertEquals(0, gasit.getMinuteUtilizateAzi());
     }
 
     // 6. Timp disponibil

@@ -1,3 +1,5 @@
+package models;
+
 public class LimitaTimp {
 
     private int minuteZilnice;

@@ -1,3 +1,5 @@
+import models.*;
+
 import java.util.*;
 import java.io.*;
 
@@ -22,7 +24,7 @@ public class Main {
     public static void main(String[] args) {
         incarcaDate();
         System.out.println("\n╔══════════════════════════════════════╗");
-        System.out.println("║   SISTEM CONTROL PARENTAL  v1.0      ║");
+        System.out.println("║   SISTEM CONTROL PARENTAL              ║");
         System.out.println("╚══════════════════════════════════════╝");
 
         boolean running = true;

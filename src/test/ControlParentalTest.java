@@ -1,3 +1,7 @@
+package test;
+
+import models.*;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -140,7 +144,7 @@ public class ControlParentalTest {
         System.out.println("  Limita veche: " + limitaTimp.getMinuteZilnice() + " minute");
         limitaTimp.actualizeazaLimita(60);
         System.out.println("  Limita noua: " + limitaTimp.getMinuteZilnice() + " minute");
-        assertEquals(60, limitaTimp.getMinuteZilnice(), "Limita ar trebui sa fie actualizata la 60.");
+        Assertions.assertEquals(60, limitaTimp.getMinuteZilnice(), "Limita ar trebui sa fie actualizata la 60.");
         System.out.println("  [PASS] Limita actualizata corect la 60 minute.");
     }
 
@@ -174,8 +178,8 @@ public class ControlParentalTest {
         profil.inregistreazaUtilizare(60);
         System.out.println("  Minute utilizate azi: " + profil.getMinuteUtilizateAzi());
         System.out.println("  Status dispozitiv: " + (dispozitiv.isEsteActiv() ? "ACTIV" : "BLOCAT"));
-        assertEquals(60, profil.getMinuteUtilizateAzi(), "Minutele utilizate ar trebui sa fie 60.");
-        assertTrue(dispozitiv.isEsteActiv(), "Dispozitivul nu ar trebui sa fie blocat.");
+        Assertions.assertEquals(60, profil.getMinuteUtilizateAzi(), "Minutele utilizate ar trebui sa fie 60.");
+        Assertions.assertTrue(dispozitiv.isEsteActiv(), "Dispozitivul nu ar trebui sa fie blocat.");
         System.out.println("  [PASS] Utilizare inregistrata, dispozitiv ramas activ.");
     }
 
@@ -187,7 +191,7 @@ public class ControlParentalTest {
         profil.inregistreazaUtilizare(130);
         System.out.println("  Minute utilizate azi: " + profil.getMinuteUtilizateAzi());
         System.out.println("  Status dispozitiv: " + (dispozitiv.isEsteActiv() ? "ACTIV" : "BLOCAT"));
-        assertFalse(dispozitiv.isEsteActiv(), "Dispozitivul ar trebui sa fie blocat dupa depasirea limitei.");
+        Assertions.assertFalse(dispozitiv.isEsteActiv(), "Dispozitivul ar trebui sa fie blocat dupa depasirea limitei.");
         System.out.println("  [PASS] Dispozitivul a fost blocat automat dupa depasire.");
     }
 
@@ -208,7 +212,7 @@ public class ControlParentalTest {
         System.out.println("  Minute utilizate inainte de reset: " + profil.getMinuteUtilizateAzi());
         profil.resetMinuteZilnice();
         System.out.println("  Minute utilizate dupa reset: " + profil.getMinuteUtilizateAzi());
-        assertEquals(0, profil.getMinuteUtilizateAzi(), "Dupa reset, minutele utilizate ar trebui sa fie 0.");
+        Assertions.assertEquals(0, profil.getMinuteUtilizateAzi(), "Dupa reset, minutele utilizate ar trebui sa fie 0.");
         System.out.println("  [PASS] Resetul minutelor zilnice a functionat corect.");
     }
 
@@ -221,7 +225,7 @@ public class ControlParentalTest {
         System.out.println("  Status initial: " + (dispozitiv.isEsteActiv() ? "ACTIV" : "BLOCAT"));
         dispozitiv.blocheazaDispozitiv();
         System.out.println("  Status dupa blocare: " + (dispozitiv.isEsteActiv() ? "ACTIV" : "BLOCAT"));
-        assertFalse(dispozitiv.isEsteActiv(), "Dispozitivul ar trebui sa fie blocat.");
+        Assertions.assertFalse(dispozitiv.isEsteActiv(), "Dispozitivul ar trebui sa fie blocat.");
         System.out.println("  [PASS] Dispozitivul a fost blocat corect.");
     }
 
@@ -233,7 +237,7 @@ public class ControlParentalTest {
         System.out.println("  Status dupa blocare: " + (dispozitiv.isEsteActiv() ? "ACTIV" : "BLOCAT"));
         dispozitiv.deblocheazaDispozitiv();
         System.out.println("  Status dupa deblocare: " + (dispozitiv.isEsteActiv() ? "ACTIV" : "BLOCAT"));
-        assertTrue(dispozitiv.isEsteActiv(), "Dispozitivul ar trebui sa fie deblocat.");
+        Assertions.assertTrue(dispozitiv.isEsteActiv(), "Dispozitivul ar trebui sa fie deblocat.");
         System.out.println("  [PASS] Dispozitivul a fost deblocat corect.");
     }
 
@@ -264,7 +268,7 @@ public class ControlParentalTest {
         System.out.println("[TEST] Verificare status initial aplicatie");
         System.out.println("  Aplicatie: " + aplicatie.getNumeAplicatie() + " (" + aplicatie.getCategorie() + ")");
         System.out.println("  Status initial: " + (aplicatie.estePermisa() ? "PERMISA" : "BLOCATA"));
-        assertTrue(aplicatie.estePermisa(), "Aplicatia ar trebui sa fie permisa implicit.");
+        Assertions.assertTrue(aplicatie.estePermisa(), "Aplicatia ar trebui sa fie permisa implicit.");
         System.out.println("  [PASS] Aplicatia este permisa implicit, corect.");
     }
 
@@ -275,7 +279,7 @@ public class ControlParentalTest {
         System.out.println("  Status inainte: " + (aplicatie.estePermisa() ? "PERMISA" : "BLOCATA"));
         aplicatie.blocheaza();
         System.out.println("  Status dupa blocare: " + (aplicatie.estePermisa() ? "PERMISA" : "BLOCATA"));
-        assertFalse(aplicatie.estePermisa(), "Aplicatia ar trebui sa fie blocata.");
+        Assertions.assertFalse(aplicatie.estePermisa(), "Aplicatia ar trebui sa fie blocata.");
         System.out.println("  [PASS] Aplicatia a fost blocata corect.");
     }
 
@@ -287,7 +291,7 @@ public class ControlParentalTest {
         System.out.println("  Status dupa blocare: " + (aplicatie.estePermisa() ? "PERMISA" : "BLOCATA"));
         aplicatie.deblocheaza();
         System.out.println("  Status dupa deblocare: " + (aplicatie.estePermisa() ? "PERMISA" : "BLOCATA"));
-        assertTrue(aplicatie.estePermisa(), "Aplicatia ar trebui sa fie deblocata.");
+        Assertions.assertTrue(aplicatie.estePermisa(), "Aplicatia ar trebui sa fie deblocata.");
         System.out.println("  [PASS] Aplicatia a fost deblocata corect.");
     }
 
@@ -369,8 +373,8 @@ public class ControlParentalTest {
         raport.adaugaAplicatieAccesata("TikTok", 20);
         System.out.println("  Total minute calculate: " + raport.getMinuteUtilizate());
         System.out.println("  Numar aplicatii accesate: " + raport.getListaAplicatiiAccesate().size());
-        assertEquals(50, raport.getMinuteUtilizate(), "Totalul minutelor ar trebui sa fie 50.");
-        assertEquals(2, raport.getListaAplicatiiAccesate().size(), "Ar trebui sa fie 2 aplicatii accesate.");
+        Assertions.assertEquals(50, raport.getMinuteUtilizate(), "Totalul minutelor ar trebui sa fie 50.");
+        Assertions.assertEquals(2, raport.getListaAplicatiiAccesate().size(), "Ar trebui sa fie 2 aplicatii accesate.");
         System.out.println("  [PASS] Raportul contine 50 minute si 2 aplicatii, corect.");
     }
 }

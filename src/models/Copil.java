@@ -1,3 +1,5 @@
+package models;
+
 public class Copil extends Utilizator {
 
     private int varsta;
