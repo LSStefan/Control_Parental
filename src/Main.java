@@ -1,14 +1,13 @@
-import models.*;
-
 import java.util.*;
 import java.io.*;
+import models.*;
+
 
 public class Main {
 
-    // ─── Date in memorie ───────────────────────────────────────────────────────
-    static List<Parinte>      parinti    = new ArrayList<>();
-    static List<Copil>        copii      = new ArrayList<>();
-    static List<ProfilCopil>  profiluri  = new ArrayList<>();
+    static List<Parinte>      parinti     = new ArrayList<>();
+    static List<Copil>        copii       = new ArrayList<>();
+    static List<ProfilCopil>  profiluri   = new ArrayList<>();
     static List<Dispozitiv>   dispozitive = new ArrayList<>();
 
     static final String CSV_PARINTI     = "parinti.csv";
@@ -16,16 +15,18 @@ public class Main {
     static final String CSV_PROFILURI   = "profiluri.csv";
     static final String CSV_DISPOZITIVE = "dispozitive.csv";
     static final String CSV_APLICATII   = "aplicatii.csv";
+    static final String CSV_UTILIZARE   = "utilizare_aplicatii.csv";
 
     static Scanner scanner = new Scanner(System.in);
     static int nextId = 100;
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    // idProfil -> (idAplicatie -> minuteUtilizate)
+    static Map<Integer, Map<Integer, Integer>> utilizareAplicatii = new HashMap<>();
+
     public static void main(String[] args) {
         incarcaDate();
-        System.out.println("\n╔══════════════════════════════════════╗");
-        System.out.println("║   SISTEM CONTROL PARENTAL              ║");
-        System.out.println("╚══════════════════════════════════════╝");
+
+        System.out.println(" SISTEM CONTROL PARENTAL ");
 
         boolean running = true;
         while (running) {
@@ -64,9 +65,7 @@ public class Main {
         System.out.print("Alegere: ");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 1. PARINTI
-    // ═══════════════════════════════════════════════════════════════════════════
+    // parinti
     static void gestioneazaParinti() {
         boolean back = false;
         while (!back) {
@@ -114,9 +113,7 @@ public class Main {
         } catch (NumberFormatException e) { System.out.println("✘  ID invalid."); }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 2. COPII
-    // ═══════════════════════════════════════════════════════════════════════════
+    // copii
     static void gestioneazaCopii() {
         boolean back = false;
         while (!back) {
@@ -182,13 +179,11 @@ public class Main {
             for (ProfilCopil p : profiluri) if (p.getCopil().getId() == idC) { profil = p; break; }
             if (profil == null) { System.out.println("✘  Copilul nu are profil asociat."); return; }
             int disponibil = copil.vizualizeazaTimpDisponibil(profil);
-            System.out.printf("⏱  Timp disponibil azi pentru %s: %d minute%n", copil.getNume(), disponibil);
+            System.out.printf("  Timp disponibil azi pentru %s: %d minute%n", copil.getNume(), disponibil);
         } catch (NumberFormatException e) { System.out.println("✘  ID invalid."); }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 3. PROFILURI
-    // ═══════════════════════════════════════════════════════════════════════════
+    // profiluri
     static void gestioneazaProfiluri() {
         boolean back = false;
         while (!back) {
@@ -232,6 +227,7 @@ public class Main {
             int id = nextId++;
             ProfilCopil profil = new ProfilCopil(id, copil, limita);
             profiluri.add(profil);
+            utilizareAplicatii.put(id, new HashMap<>());
             if (!parinti.isEmpty()) {
                 listeazaParinti();
                 System.out.print("ID parinte asociat (Enter pt a sari): ");
@@ -253,9 +249,9 @@ public class Main {
         System.out.println("  ────────────────────────────────────────────────");
         for (ProfilCopil p : profiluri)
             System.out.printf("  %-4d %-16s %-7d %-9d %s-%s%n",
-                p.getIdProfil(), p.getCopil().getNume(),
-                p.getLimitaTimp().getMinuteZilnice(), p.getMinuteUtilizateAzi(),
-                p.getLimitaTimp().getOraInceput(), p.getLimitaTimp().getOraSfarsit());
+                    p.getIdProfil(), p.getCopil().getNume(),
+                    p.getLimitaTimp().getMinuteZilnice(), p.getMinuteUtilizateAzi(),
+                    p.getLimitaTimp().getOraInceput(), p.getLimitaTimp().getOraSfarsit());
     }
 
     static void stergeProfil() {
@@ -264,6 +260,7 @@ public class Main {
         try {
             int id = Integer.parseInt(scanner.nextLine().trim());
             boolean ok = profiluri.removeIf(p -> p.getIdProfil() == id);
+            utilizareAplicatii.remove(id);
             System.out.println(ok ? "✔  Profil sters." : "✘  ID negasit.");
         } catch (NumberFormatException e) { System.out.println("✘  ID invalid."); }
     }
@@ -279,6 +276,11 @@ public class Main {
             System.out.print("Minute noi: ");
             int min = Integer.parseInt(scanner.nextLine().trim());
             profil.getLimitaTimp().actualizeazaLimita(min);
+            // daca noua limita nu este depasita de minutele curente, deblocheaza
+            if (!profil.getLimitaTimp().verificaDepasire(profil.getMinuteUtilizateAzi())) {
+                profil.deblocheazaToateDispozitivele();
+                System.out.println("  Dispozitivele au fost deblocate deoarece limita noua nu este depasita.");
+            }
         } catch (Exception e) { System.out.println("✘  " + e.getMessage()); }
     }
 
@@ -311,22 +313,28 @@ public class Main {
         System.out.print("ID profil (sau 'all' pentru toate): ");
         String inp = scanner.nextLine().trim();
         if (inp.equalsIgnoreCase("all")) {
-            for (ProfilCopil p : profiluri) p.resetMinuteZilnice();
+            for (ProfilCopil p : profiluri) {
+                p.resetMinuteZilnice();
+                utilizareAplicatii.put(p.getIdProfil(), new HashMap<>());
+            }
             System.out.println("✔  Reset facut pentru toate profilurile.");
         } else {
             try {
                 int id = Integer.parseInt(inp);
                 for (ProfilCopil p : profiluri) {
-                    if (p.getIdProfil() == id) { p.resetMinuteZilnice(); System.out.println("✔  Reset facut."); return; }
+                    if (p.getIdProfil() == id) {
+                        p.resetMinuteZilnice();
+                        utilizareAplicatii.put(id, new HashMap<>());
+                        System.out.println("✔  Reset facut.");
+                        return;
+                    }
                 }
                 System.out.println("✘  Profil negasit.");
             } catch (NumberFormatException e) { System.out.println("✘  Input invalid."); }
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 4. DISPOZITIVE
-    // ═══════════════════════════════════════════════════════════════════════════
+    // dispozitive
     static void gestioneazaDispozitive() {
         boolean back = false;
         while (!back) {
@@ -369,8 +377,8 @@ public class Main {
         System.out.println("  ─────────────────────────────────────────────");
         for (Dispozitiv d : dispozitive)
             System.out.printf("  %-4d %-20s %-12s %s%n",
-                d.getIdDispozitiv(), d.getNumeDispozitiv(), d.getTip(),
-                d.isEsteActiv() ? "DA" : "NU");
+                    d.getIdDispozitiv(), d.getNumeDispozitiv(), d.getTip(),
+                    d.isEsteActiv() ? "DA" : "NU");
     }
 
     static void asociazaDispozitiv() {
@@ -443,9 +451,7 @@ public class Main {
         } catch (NumberFormatException e) { System.out.println("✘  ID invalid."); }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 5. APLICATII
-    // ═══════════════════════════════════════════════════════════════════════════
+    // aplicatii
     static void gestioneazaAplicatii() {
         boolean back = false;
         while (!back) {
@@ -497,8 +503,8 @@ public class Main {
         System.out.println("  ──────────────────────────────────────────────────");
         for (Aplicatie a : disp.getListaAplicatii())
             System.out.printf("  %-4d %-20s %-14s %s%n",
-                a.getIdAplicatie(), a.getNumeAplicatie(), a.getCategorie(),
-                a.isEsteBlocata() ? "DA" : "NU");
+                    a.getIdAplicatie(), a.getNumeAplicatie(), a.getCategorie(),
+                    a.isEsteBlocata() ? "DA" : "NU");
     }
 
     static void blocheazaAplicatie() {
@@ -536,9 +542,7 @@ public class Main {
         } catch (Exception e) { System.out.println("✘  " + e.getMessage()); }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 6. INREGISTREAZA UTILIZARE
-    // ═══════════════════════════════════════════════════════════════════════════
+    // inregistreaza utilizare
     static void inregistreazaUtilizare() {
         listeazaProfiluri();
         System.out.print("ID profil: ");
@@ -547,51 +551,134 @@ public class Main {
             ProfilCopil profil = null;
             for (ProfilCopil p : profiluri) if (p.getIdProfil() == idP) { profil = p; break; }
             if (profil == null) { System.out.println("✘  Profil negasit."); return; }
-            System.out.print("Minute de adaugat: ");
+
+            // verifica daca mai sunt minute disponibile
+            int minuteRamase = profil.getLimitaTimp().getMinuteZilnice() - profil.getMinuteUtilizateAzi();
+            if (minuteRamase <= 0) {
+                System.out.println("✘  Limita zilnica epuizata pentru " + profil.getCopil().getNume() + ". Foloseste reset minute pentru o noua zi.");
+                return;
+            }
+
+            // selecteaza dispozitiv activ
+            List<Dispozitiv> active = new ArrayList<>();
+            for (Dispozitiv d : profil.getListaDispozitive())
+                if (d.isEsteActiv()) active.add(d);
+            if (active.isEmpty()) { System.out.println("✘  Nu exista dispozitive active pentru acest profil."); return; }
+
+            System.out.println("  Dispozitive active:");
+            for (Dispozitiv d : active)
+                System.out.printf("  %-4d %s%n", d.getIdDispozitiv(), d.getNumeDispozitiv());
+            System.out.print("ID dispozitiv: ");
+            int idD = Integer.parseInt(scanner.nextLine().trim());
+            Dispozitiv dispozitiv = null;
+            for (Dispozitiv d : active) if (d.getIdDispozitiv() == idD) { dispozitiv = d; break; }
+            if (dispozitiv == null) { System.out.println("✘  Dispozitiv negasit sau blocat."); return; }
+
+            // selecteaza aplicatie permisa
+            List<Aplicatie> permise = new ArrayList<>();
+            for (Aplicatie a : dispozitiv.getListaAplicatii())
+                if (a.estePermisa()) permise.add(a);
+            if (permise.isEmpty()) { System.out.println("✘  Nu exista aplicatii permise pe acest dispozitiv."); return; }
+
+            System.out.println("  Aplicatii permise:");
+            for (Aplicatie a : permise)
+                System.out.printf("  %-4d %-20s (%s)%n", a.getIdAplicatie(), a.getNumeAplicatie(), a.getCategorie());
+            System.out.print("ID aplicatie: ");
+            int idA = Integer.parseInt(scanner.nextLine().trim());
+            Aplicatie aplicatie = null;
+            for (Aplicatie a : permise) if (a.getIdAplicatie() == idA) { aplicatie = a; break; }
+            if (aplicatie == null) { System.out.println("✘  Aplicatie negasita sau blocata."); return; }
+
+            System.out.printf("  Minute disponibile azi: %d%n", minuteRamase);
+            System.out.print("Minute de utilizare: ");
             int min = Integer.parseInt(scanner.nextLine().trim());
+            if (min <= 0) { System.out.println("✘  Numarul de minute trebuie sa fie pozitiv."); return; }
+
+            // daca depaseste limita, ofera optiunea de a folosi doar ce a ramas
+            if (min > minuteRamase) {
+                System.out.printf("  Atentie: ai introdus %d minute dar mai sunt disponibile doar %d.%n", min, minuteRamase);
+                System.out.print("  Foloseste doar minutele disponibile? (da/nu): ");
+                String raspuns = scanner.nextLine().trim().toLowerCase();
+                if (raspuns.equals("da")) min = minuteRamase;
+                // daca nu -> inregistreaza cat s-a cerut, dispozitivele se vor bloca automat
+            }
+
             profil.inregistreazaUtilizare(min);
-            System.out.printf("✔  Utilizare inregistrata. Total azi: %d/%d minute.%n",
-                profil.getMinuteUtilizateAzi(), profil.getLimitaTimp().getMinuteZilnice());
+
+            // actualizeaza utilizarea per aplicatie pentru raport
+            Map<Integer, Integer> uMap = utilizareAplicatii.computeIfAbsent(idP, k -> new HashMap<>());
+            uMap.merge(aplicatie.getIdAplicatie(), min, Integer::sum);
+
+            System.out.printf("✔  %s: +%d minute. Total azi: %d/%d minute.%n",
+                    aplicatie.getNumeAplicatie(), min,
+                    profil.getMinuteUtilizateAzi(), profil.getLimitaTimp().getMinuteZilnice());
+
+            if (profil.getLimitaTimp().verificaDepasire(profil.getMinuteUtilizateAzi()))
+                System.out.println("  Limita atinsa. Toate dispozitivele au fost blocate automat.");
+
         } catch (Exception e) { System.out.println("✘  " + e.getMessage()); }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // 7. RAPOARTE
-    // ═══════════════════════════════════════════════════════════════════════════
+    // rapoarte
     static void veziRapoarte() {
         listeazaProfiluri();
         System.out.print("ID profil (sau Enter pentru toate): ");
         String inp = scanner.nextLine().trim();
         if (inp.isEmpty()) {
-            for (ProfilCopil p : profiluri)
-                System.out.println(p.genereazaRaport().genereazaRaport());
+            for (ProfilCopil p : profiluri) afiseazaRaportProfil(p);
         } else {
             try {
                 int id = Integer.parseInt(inp);
                 for (ProfilCopil p : profiluri) {
-                    if (p.getIdProfil() == id) { System.out.println(p.genereazaRaport().genereazaRaport()); return; }
+                    if (p.getIdProfil() == id) { afiseazaRaportProfil(p); return; }
                 }
                 System.out.println("✘  Profil negasit.");
             } catch (NumberFormatException e) { System.out.println("✘  ID invalid."); }
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PERSISTENTA CSV — SALVARE
-    // ═══════════════════════════════════════════════════════════════════════════
+    static void afiseazaRaportProfil(ProfilCopil profil) {
+        Map<Integer, Integer> uMap = utilizareAplicatii.getOrDefault(profil.getIdProfil(), new HashMap<>());
+        System.out.println("\n=== RAPORT ACTIVITATE ===");
+        System.out.println("  Profil   : " + profil.getIdProfil());
+        System.out.println("  Copil    : " + profil.getCopil().getNume()
+                + " (" + profil.getCopil().getVarsta() + " ani)");
+        System.out.println("  Data     : " + java.time.LocalDate.now());
+        System.out.println("  Interval : " + profil.getLimitaTimp().getOraInceput()
+                + " - " + profil.getLimitaTimp().getOraSfarsit());
+        System.out.printf("  Total    : %d/%d minute%n",
+                profil.getMinuteUtilizateAzi(), profil.getLimitaTimp().getMinuteZilnice());
+        System.out.println("  Aplicatii:");
+        boolean vreoActivitate = false;
+        for (Dispozitiv d : profil.getListaDispozitive()) {
+            for (Aplicatie a : d.getListaAplicatii()) {
+                int min = uMap.getOrDefault(a.getIdAplicatie(), 0);
+                String status = a.isEsteBlocata() ? " [BLOCATA]" : "";
+                if (min > 0 || a.isEsteBlocata()) {
+                    System.out.printf("    - %-20s %3d min  %s%s%n",
+                            a.getNumeAplicatie(), min, d.getNumeDispozitiv(), status);
+                    vreoActivitate = true;
+                }
+            }
+        }
+        if (!vreoActivitate) System.out.println("    (nicio activitate inregistrata)");
+        System.out.println("=========================");
+    }
+
+    // salvare csv
     static void salveazaDate() {
         salveazaParinti();
         salveazaCopii();
         salveazaProfiluri();
         salveazaDispozitiveAplicatii();
+        salveazaUtilizareAplicatii();
     }
 
     static void salveazaParinti() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(CSV_PARINTI))) {
             pw.println("id,nume,email,parola");
             for (Parinte p : parinti)
-                pw.printf("%d,%s,%s,%s%n",
-                    p.getId(), esc(p.getNume()), esc(p.getEmail()), esc(p.getParola()));
+                pw.printf("%d,%s,%s,%s%n", p.getId(), esc(p.getNume()), esc(p.getEmail()), esc(p.getParola()));
         } catch (IOException e) { System.out.println("✘  Eroare salvare parinti: " + e.getMessage()); }
     }
 
@@ -599,8 +686,7 @@ public class Main {
         try (PrintWriter pw = new PrintWriter(new FileWriter(CSV_COPII))) {
             pw.println("id,nume,email,parola,varsta");
             for (Copil c : copii)
-                pw.printf("%d,%s,%s,%s,%d%n",
-                    c.getId(), esc(c.getNume()), esc(c.getEmail()), esc(c.getParola()), c.getVarsta());
+                pw.printf("%d,%s,%s,%s,%d%n", c.getId(), esc(c.getNume()), esc(c.getEmail()), esc(c.getParola()), c.getVarsta());
         } catch (IOException e) { System.out.println("✘  Eroare salvare copii: " + e.getMessage()); }
     }
 
@@ -609,11 +695,11 @@ public class Main {
             pw.println("idProfil,idCopil,minuteZilnice,oraInceput,oraSfarsit,minuteUtilizateAzi");
             for (ProfilCopil p : profiluri)
                 pw.printf("%d,%d,%d,%s,%s,%d%n",
-                    p.getIdProfil(), p.getCopil().getId(),
-                    p.getLimitaTimp().getMinuteZilnice(),
-                    esc(p.getLimitaTimp().getOraInceput()),
-                    esc(p.getLimitaTimp().getOraSfarsit()),
-                    p.getMinuteUtilizateAzi());
+                        p.getIdProfil(), p.getCopil().getId(),
+                        p.getLimitaTimp().getMinuteZilnice(),
+                        esc(p.getLimitaTimp().getOraInceput()),
+                        esc(p.getLimitaTimp().getOraSfarsit()),
+                        p.getMinuteUtilizateAzi());
         } catch (IOException e) { System.out.println("✘  Eroare salvare profiluri: " + e.getMessage()); }
     }
 
@@ -624,63 +710,68 @@ public class Main {
             pwD.println("idDispozitiv,numeDispozitiv,tip,esteActiv,idProfil");
             pwA.println("idAplicatie,numeAplicatie,categorie,esteBlocata,idDispozitiv");
 
-            // Seturi de id-uri deja scrise pentru dispozitive
             Set<Integer> dispScrise = new HashSet<>();
-
             for (ProfilCopil profil : profiluri) {
                 for (Dispozitiv d : profil.getListaDispozitive()) {
                     if (!dispScrise.contains(d.getIdDispozitiv())) {
                         pwD.printf("%d,%s,%s,%b,%d%n",
-                            d.getIdDispozitiv(), esc(d.getNumeDispozitiv()),
-                            esc(d.getTip()), d.isEsteActiv(), profil.getIdProfil());
+                                d.getIdDispozitiv(), esc(d.getNumeDispozitiv()),
+                                esc(d.getTip()), d.isEsteActiv(), profil.getIdProfil());
                         dispScrise.add(d.getIdDispozitiv());
                     }
                     for (Aplicatie a : d.getListaAplicatii())
                         pwA.printf("%d,%s,%s,%b,%d%n",
-                            a.getIdAplicatie(), esc(a.getNumeAplicatie()),
-                            esc(a.getCategorie()), a.isEsteBlocata(), d.getIdDispozitiv());
+                                a.getIdAplicatie(), esc(a.getNumeAplicatie()),
+                                esc(a.getCategorie()), a.isEsteBlocata(), d.getIdDispozitiv());
                 }
             }
-            // Dispozitive neatasate la niciun profil
             for (Dispozitiv d : dispozitive) {
                 if (!dispScrise.contains(d.getIdDispozitiv())) {
                     pwD.printf("%d,%s,%s,%b,-1%n",
-                        d.getIdDispozitiv(), esc(d.getNumeDispozitiv()), esc(d.getTip()), d.isEsteActiv());
+                            d.getIdDispozitiv(), esc(d.getNumeDispozitiv()), esc(d.getTip()), d.isEsteActiv());
                     for (Aplicatie a : d.getListaAplicatii())
                         pwA.printf("%d,%s,%s,%b,%d%n",
-                            a.getIdAplicatie(), esc(a.getNumeAplicatie()),
-                            esc(a.getCategorie()), a.isEsteBlocata(), d.getIdDispozitiv());
+                                a.getIdAplicatie(), esc(a.getNumeAplicatie()),
+                                esc(a.getCategorie()), a.isEsteBlocata(), d.getIdDispozitiv());
                 }
             }
         } catch (IOException e) { System.out.println("✘  Eroare salvare dispozitive: " + e.getMessage()); }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PERSISTENTA CSV — INCARCARE
-    // ═══════════════════════════════════════════════════════════════════════════
+    static void salveazaUtilizareAplicatii() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(CSV_UTILIZARE))) {
+            pw.println("idProfil,idAplicatie,minute");
+            for (Map.Entry<Integer, Map<Integer, Integer>> e : utilizareAplicatii.entrySet())
+                for (Map.Entry<Integer, Integer> e2 : e.getValue().entrySet())
+                    pw.printf("%d,%d,%d%n", e.getKey(), e2.getKey(), e2.getValue());
+        } catch (IOException e) { System.out.println("✘  Eroare salvare utilizare: " + e.getMessage()); }
+    }
+
+    // incarcare csv
     static void incarcaDate() {
         incarcaParinti();
         incarcaCopii();
         incarcaDispozitiveAplicatii();
         incarcaProfiluri();
-        // Recalculeaza nextId
+        incarcaUtilizareAplicatii();
+
         int max = 99;
-        for (Parinte p : parinti)     if (p.getId() > max) max = p.getId();
-        for (Copil c : copii)         if (c.getId() > max) max = c.getId();
-        for (ProfilCopil p : profiluri) if (p.getIdProfil() > max) max = p.getIdProfil();
+        for (Parinte p : parinti)        if (p.getId() > max) max = p.getId();
+        for (Copil c : copii)            if (c.getId() > max) max = c.getId();
+        for (ProfilCopil p : profiluri)  if (p.getIdProfil() > max) max = p.getIdProfil();
         for (Dispozitiv d : dispozitive) if (d.getIdDispozitiv() > max) max = d.getIdDispozitiv();
         nextId = max + 1;
 
         System.out.println("✔  Date incarcate: " + parinti.size() + " parinti, " +
-            copii.size() + " copii, " + profiluri.size() + " profiluri, " +
-            dispozitive.size() + " dispozitive.");
+                copii.size() + " copii, " + profiluri.size() + " profiluri, " +
+                dispozitive.size() + " dispozitive.");
     }
 
     static void incarcaParinti() {
         File f = new File(CSV_PARINTI);
         if (!f.exists()) return;
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-            br.readLine(); // skip header
+            br.readLine();
             String line;
             while ((line = br.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
@@ -702,7 +793,7 @@ public class Main {
                 String[] t = line.split(",", -1);
                 if (t.length < 5) continue;
                 copii.add(new Copil(Integer.parseInt(t[0].trim()), t[1], t[2], t[3],
-                                    Integer.parseInt(t[4].trim())));
+                        Integer.parseInt(t[4].trim())));
             }
         } catch (Exception e) { System.out.println("✘  Eroare citire copii: " + e.getMessage()); }
     }
@@ -749,7 +840,6 @@ public class Main {
     static void incarcaProfiluri() {
         File f = new File(CSV_PROFILURI);
         if (!f.exists()) return;
-        // Prima trecere: creaza profilurile
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             br.readLine();
             String line;
@@ -767,10 +857,10 @@ public class Main {
                 int minuteAzi = Integer.parseInt(t[5].trim());
                 if (minuteAzi > 0) profil.inregistreazaUtilizare(minuteAzi);
                 profiluri.add(profil);
+                utilizareAplicatii.put(idProfil, new HashMap<>());
             }
         } catch (Exception e) { System.out.println("✘  Eroare citire profiluri: " + e.getMessage()); }
 
-        // A doua trecere: asociaza dispozitivele la profiluri
         File fd = new File(CSV_DISPOZITIVE);
         if (!fd.exists()) return;
         try (BufferedReader br = new BufferedReader(new FileReader(fd))) {
@@ -793,7 +883,24 @@ public class Main {
         } catch (Exception e) { System.out.println("✘  Eroare re-asociere dispozitive: " + e.getMessage()); }
     }
 
-    // CSV escape: inlocuieste virgula cu semicolon (campuri simple fara ghilimele)
+    static void incarcaUtilizareAplicatii() {
+        File f = new File(CSV_UTILIZARE);
+        if (!f.exists()) return;
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            br.readLine();
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) continue;
+                String[] t = line.split(",", -1);
+                if (t.length < 3) continue;
+                int idProfil = Integer.parseInt(t[0].trim());
+                int idApp    = Integer.parseInt(t[1].trim());
+                int minute   = Integer.parseInt(t[2].trim());
+                utilizareAplicatii.computeIfAbsent(idProfil, k -> new HashMap<>()).put(idApp, minute);
+            }
+        } catch (Exception e) { System.out.println("✘  Eroare citire utilizare: " + e.getMessage()); }
+    }
+
     static String esc(String s) {
         if (s == null) return "";
         return s.replace(",", ";");
